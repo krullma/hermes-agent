@@ -1038,10 +1038,10 @@ def nonretryable_client_error_result(
             agent,
             "   💡 Hermes couldn't verify the provider's security certificate. This fails the same",
             "      way on every retry — fix the environment, then try again:",
-            "      • Corporate TLS-inspecting proxy? Point Python at its CA bundle:",
-            "        export SSL_CERT_FILE=/path/to/corp-ca.pem  (also REQUESTS_CA_BUNDLE)",
-            "      • Missing/stale system CA store? Refresh it (in Hermes's venv: `uv pip install",
-            "        --upgrade certifi`; macOS: run 'Install Certificates.command').",
+            "      • Corporate TLS-inspecting proxy? Ask your administrator to install",
+            "        its root certificate in the operating system trust store.",
+            "      • Missing/stale system CA store? Refresh the OS certificate store.",
+            "        A provider-specific CA can also be configured with ssl_ca_cert.",
             "      • Self-signed local endpoint (llama.cpp, LM Studio, vLLM)? Use http://",
             "        for localhost, or add the server's cert to your trust store.",
         )
@@ -1837,7 +1837,7 @@ def route_classified_error(
                 # from the engine's overflow guard (upstream PR #77169 review).
                 messages, system_message,
                 approx_tokens=estimate_request_tokens_rough(api_messages, tools=agent.tools or None),
-                task_id=effective_task_id,
+                task_id=effective_task_id, trigger="overflow",
             )
             conversation_history = conversation_history_after_compression(agent, messages, conversation_history)
             if len(messages) < original_len or old_ctx > _LONG_CONTEXT_TIER_CAP:

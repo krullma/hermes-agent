@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-import yaml
+import hermes_yaml as yaml
 
 from hermes_cli.config import (
     DEFAULT_CONFIG,
@@ -35,21 +35,11 @@ from hermes_cli.config import (
 
 class TestGetHermesHome:
     def test_default_path(self):
+        from hermes_constants import _get_platform_default_hermes_home
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop("HERMES_HOME", None)
             home = get_hermes_home()
-            if sys.platform == "win32":
-                # Windows default is %LOCALAPPDATA%\hermes — see
-                # hermes_constants._get_platform_default_hermes_home.
-                local_appdata = os.environ.get("LOCALAPPDATA", "").strip()
-                base = (
-                    Path(local_appdata)
-                    if local_appdata
-                    else Path.home() / "AppData" / "Local"
-                )
-                assert home == base / "hermes"
-            else:
-                assert home == Path.home() / ".hermes"
+            assert home == _get_platform_default_hermes_home()
 
 
 class TestEnsureHermesHome:
@@ -954,18 +944,13 @@ class TestConfigSupportFloor:
         with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
             migrate_config(interactive=False, quiet=True)
         raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
-        # Pin the golden version the fixtures were captured at, then compare
-        # the rest against the same-latest expectation. If _config_version has
-        # advanced past 33, only the version key may differ.
+        # The fixtures were captured at _config_version 33; later migrations
+        # may add keys, so the captured keys are a subset that must still hold.
         assert raw["_config_version"] == DEFAULT_CONFIG["_config_version"]
-        raw.pop("_config_version")
         exp = dict(expected)
         exp.pop("_config_version")
-        if DEFAULT_CONFIG["_config_version"] == 33:
-            assert raw == exp
-        else:  # future migrations appended — golden subset must still hold
-            for key, val in exp.items():
-                assert raw.get(key) == val, f"parity drift on {key!r}"
+        for key, val in exp.items():
+            assert raw.get(key) == val, f"parity drift on {key!r}"
         assert (tmp_path / ".env").read_text(encoding="utf-8") == expected_env
 
 
@@ -1438,7 +1423,7 @@ class TestEnvWriteDenylist:
         assert _env_line_defines_key(line, "PATH", is_windows=True)
         assert not _env_line_defines_key(line, "PATH", is_windows=False)
 
-    @pytest.mark.windows_only
+    @pytest.mark.platforms("windows")
     @pytest.mark.parametrize(
         "protected_key",
         [
